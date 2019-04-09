@@ -445,6 +445,8 @@ function(_add_variant_link_flags)
     list(APPEND link_libraries "pthread")
   elseif("${LFLAGS_SDK}" STREQUAL "CYGWIN")
     # No extra libraries required.
+  elseif("${LFLAGS_SDK}" STREQUAL "WASM")
+    # No extra libraries required.
   elseif("${LFLAGS_SDK}" STREQUAL "WINDOWS")
     # We don't need to add -nostdlib using MSVC or clang-cl, as MSVC and clang-cl rely on auto-linking entirely.
     if(NOT SWIFT_COMPILER_IS_MSVC_LIKE)
@@ -1532,6 +1534,9 @@ endfunction()
 # SWIFT_MODULE_DEPENDS_HAIKU
 #   Swift modules this library depends on when built for Haiku.
 #
+# SWIFT_MODULE_DEPENDS_WASM
+#   Swift modules this library depends on when built for WebAssembly.
+#
 # FRAMEWORK_DEPENDS
 #   System frameworks this library depends on.
 #
@@ -1639,6 +1644,7 @@ function(add_swift_target_library name)
         SWIFT_MODULE_DEPENDS_OSX
         SWIFT_MODULE_DEPENDS_TVOS
         SWIFT_MODULE_DEPENDS_WATCHOS
+	SWIFT_MODULE_DEPENDS_WASM
         SWIFT_MODULE_DEPENDS_WINDOWS
         TARGET_SDKS)
 
@@ -1676,7 +1682,7 @@ function(add_swift_target_library name)
   if("${SWIFTLIB_TARGET_SDKS}" STREQUAL "")
     set(SWIFTLIB_TARGET_SDKS ${SWIFT_SDKS})
   endif()
-  list_replace(SWIFTLIB_TARGET_SDKS ALL_POSIX_PLATFORMS "ALL_APPLE_PLATFORMS;ANDROID;CYGWIN;FREEBSD;LINUX;HAIKU")
+  list_replace(SWIFTLIB_TARGET_SDKS ALL_POSIX_PLATFORMS "ALL_APPLE_PLATFORMS;ANDROID;CYGWIN;FREEBSD;LINUX;HAIKU;WASM")
   list_replace(SWIFTLIB_TARGET_SDKS ALL_APPLE_PLATFORMS "${SWIFT_APPLE_PLATFORMS}")
 
   # All Swift code depends on the standard library, except for the standard
@@ -1763,6 +1769,9 @@ function(add_swift_target_library name)
     elseif(${sdk} STREQUAL HAIKU)
       list(APPEND swiftlib_module_depends_flattened
            ${SWIFTLIB_SWIFT_MODULE_DEPENDS_HAIKU})
+    elseif(${sdk} STREQUAL WASM)
+      list(APPEND swiftlib_module_depends_flattened
+           ${SWIFTLIB_SWIFT_MODULE_DEPENDS_WASM})
     elseif(${sdk} STREQUAL WINDOWS)
       list(APPEND swiftlib_module_depends_flattened
            ${SWIFTLIB_SWIFT_MODULE_DEPENDS_WINDOWS})
