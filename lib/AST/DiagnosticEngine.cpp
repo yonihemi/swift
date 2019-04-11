@@ -591,6 +591,11 @@ void DiagnosticEngine::formatDiagnosticText(
     size_t Length = InText.find_if_not(isdigit);
     unsigned ArgIndex;      
     bool Result = InText.substr(0, Length).getAsInteger(10, ArgIndex);
+    if (Result) {
+      Out << StringRef("Can't parse the error text?!");
+      Out << InText;
+      break;
+    }
     assert(!Result && "Unparseable argument index value?");
     (void)Result;
     assert(ArgIndex < Args.size() && "Out-of-range argument index");
