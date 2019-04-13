@@ -228,10 +228,12 @@ llvm::Constant *IRGenModule::getMangledAssociatedConformance(
   auto finished = S.finishAndCreateFuture();
   auto var = new llvm::GlobalVariable(Module, finished.getType(),
                                       /*constant*/ true,
-                                      llvm::GlobalValue::LinkOnceODRLinkage,
+                                      //llvm::GlobalValue::LinkOnceODRLinkage, WebAssembly hack
+                                      llvm::GlobalValue::ExternalLinkage,
                                       nullptr,
                                       symbolName);
-  ApplyIRLinkage(IRLinkage::InternalLinkOnceODR).to(var);
+  //ApplyIRLinkage(IRLinkage::InternalLinkOnceODR).to(var);
+  ApplyIRLinkage(IRLinkage::ExternalExport).to(var);
   var->setAlignment(2);
   setTrueConstGlobal(var);
   var->setSection(getReflectionTypeRefSectionName());

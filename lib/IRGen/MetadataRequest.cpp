@@ -272,11 +272,14 @@ llvm::Constant *IRGenModule::getAddrOfStringForMetadataRef(
 
   auto var = new llvm::GlobalVariable(Module, finished.getType(),
                                       /*constant*/ true,
-                                      llvm::GlobalValue::LinkOnceODRLinkage,
+// WebAssembly: HACK
+//                                      llvm::GlobalValue::LinkOnceODRLinkage,
+                                      llvm::GlobalValue::ExternalLinkage,
                                       nullptr,
                                       symbolName);
 
-  ApplyIRLinkage(IRLinkage::InternalLinkOnceODR).to(var);
+//  ApplyIRLinkage(IRLinkage::InternalLinkOnceODR).to(var);
+  ApplyIRLinkage(IRLinkage::ExternalImport).to(var);
   if (alignment)
     var->setAlignment(alignment);
   setTrueConstGlobal(var);
@@ -387,10 +390,13 @@ llvm::Constant *IRGenModule::getAddrOfStringForTypeRef(
   auto finished = S.finishAndCreateFuture();
   auto var = new llvm::GlobalVariable(Module, finished.getType(),
                                       /*constant*/ true,
-                                      llvm::GlobalValue::LinkOnceODRLinkage,
+// WebAssembly: hack
+//                                      llvm::GlobalValue::LinkOnceODRLinkage,
+                                      llvm::GlobalValue::ExternalLinkage,
                                       nullptr,
                                       symbolName);
-  ApplyIRLinkage(IRLinkage::InternalLinkOnceODR).to(var);
+//  ApplyIRLinkage(IRLinkage::InternalLinkOnceODR).to(var);
+  ApplyIRLinkage(IRLinkage::ExternalImport).to(var);
   var->setAlignment(2);
   setTrueConstGlobal(var);
   var->setSection(getReflectionTypeRefSectionName());
