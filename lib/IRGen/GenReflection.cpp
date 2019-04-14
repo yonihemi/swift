@@ -1068,10 +1068,11 @@ void IRGenModule::emitReflectionMetadataVersion() {
   auto Init =
     llvm::ConstantInt::get(Int16Ty, SWIFT_REFLECTION_METADATA_VERSION);
   auto Version = new llvm::GlobalVariable(Module, Int16Ty, /*constant*/ true,
-                                          llvm::GlobalValue::LinkOnceODRLinkage,
+                                          //llvm::GlobalValue::LinkOnceODRLinkage, WebAssembly hack
+                                          llvm::GlobalValue::ExternalLinkage,
                                           Init,
                                           "__swift_reflection_version");
-  ApplyIRLinkage(IRLinkage::InternalLinkOnceODR).to(Version);
+  ApplyIRLinkage(IRLinkage::ExternalExport).to(Version);
   addUsedGlobal(Version);
 }
 
