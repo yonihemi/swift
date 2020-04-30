@@ -875,14 +875,14 @@ static Expr *buildStorageReference(AccessorDecl *accessor,
     // Key path referring to the property being accessed.
     Expr *propertyKeyPath = new (ctx) KeyPathDotExpr(SourceLoc());
     propertyKeyPath = UnresolvedDotExpr::createImplicit(ctx, propertyKeyPath,
-        enclosingSelfAccess->accessedProperty->getFullName());
+        enclosingSelfAccess->accessedProperty->getName());
     propertyKeyPath = new (ctx) KeyPathExpr(
         SourceLoc(), nullptr, propertyKeyPath, /*hasLeadingDot=*/true);
 
     // Key path referring to the backing storage property.
     Expr *storageKeyPath = new (ctx) KeyPathDotExpr(SourceLoc());
     storageKeyPath = UnresolvedDotExpr::createImplicit(ctx, storageKeyPath,
-                                                       storage->getFullName());
+                                                       storage->getName());
     storageKeyPath = new (ctx) KeyPathExpr(SourceLoc(), nullptr, storageKeyPath,
                                            /*hasLeadingDot=*/true);
     Expr *args[3] = {selfDRE, propertyKeyPath, storageKeyPath};
@@ -890,7 +890,7 @@ static Expr *buildStorageReference(AccessorDecl *accessor,
     SubscriptDecl *subscriptDecl = enclosingSelfAccess->subscript;
     lookupExpr = SubscriptExpr::create(
         ctx, wrapperMetatype, SourceLoc(), args,
-        subscriptDecl->getFullName().getArgumentNames(), { }, SourceLoc(),
+        subscriptDecl->getName().getArgumentNames(), { }, SourceLoc(),
         nullptr, subscriptDecl, /*Implicit=*/true);
 
     // FIXME: Since we're not resolving overloads or anything, we should be
@@ -1002,7 +1002,7 @@ static Expr *synthesizeCopyWithZoneCall(Expr *Val, VarDecl *VD,
   FuncDecl *copyMethod = nullptr;
   for (auto member : conformance.getRequirement()->getMembers()) {
     if (auto func = dyn_cast<FuncDecl>(member)) {
-      if (func->getFullName() == copyWithZoneName) {
+      if (func->getName() == copyWithZoneName) {
         copyMethod = func;
         break;
       }
@@ -1492,7 +1492,7 @@ static Expr *maybeWrapInOutExpr(Expr *expr, ASTContext &ctx) {
 /// setter which calls them.
 static std::pair<BraceStmt *, bool>
 synthesizeObservedSetterBody(AccessorDecl *Set, TargetImpl target,
-                             ASTContext &Ctx) {
+                             ASTContext &Ctx, bool isLazy = false) {
   auto VD = cast<VarDecl>(Set->getStorage());
 
   SourceLoc Loc = VD->getLoc();
@@ -1559,10 +1559,9 @@ synthesizeObservedSetterBody(AccessorDecl *Set, TargetImpl target,
     // parameter or it's provided explicitly in the parameter list.
     if (!didSet->isSimpleDidSet()) {
       Expr *OldValueExpr =
-          buildStorageReference(Set, VD, target,
+          buildStorageReference(Set, VD, isLazy ? TargetImpl::Ordinary : target,
                                 /*isUsedForGetAccess=*/true,
-                                /*isUsedForSetAccess=*/true,
-                                Ctx);
+                                /*isUsedForSetAccess=*/true, Ctx);
 
       // Error recovery.
       if (OldValueExpr == nullptr) {
@@ -1590,8 +1589,9 @@ synthesizeObservedSetterBody(AccessorDecl *Set, TargetImpl target,
   // Create an assignment into the storage or call to superclass setter.
   auto *ValueDRE = new (Ctx) DeclRefExpr(ValueDecl, DeclNameLoc(), true);
   ValueDRE->setType(ValueDecl->getType());
-  createPropertyStoreOrCallSuperclassSetter(Set, ValueDRE, VD, target,
-                                            SetterBody, Ctx);
+  createPropertyStoreOrCallSuperclassSetter(
+      Set, ValueDRE, isLazy ? VD->getLazyStorageProperty() : VD, target,
+      SetterBody, Ctx);
 
   if (auto didSet = VD->getParsedAccessor(AccessorKind::DidSet))
     callObserver(didSet, OldValue);
@@ -1619,6 +1619,10 @@ synthesizeSetterBody(AccessorDecl *setter, ASTContext &ctx) {
   if (auto var = dyn_cast<VarDecl>(storage)) {
     if (var->getAttrs().hasAttribute<LazyAttr>()) {
       // Lazy property setters write to the underlying storage.
+      if (var->hasObservers()) {
+        return synthesizeObservedSetterBody(setter, TargetImpl::Storage, ctx,
+                                            /*isLazy=*/true);
+      }
       auto *storage = var->getLazyStorageProperty();
       return synthesizeTrivialSetterBodyWithStorage(setter, TargetImpl::Storage,
                                                     storage, ctx);
@@ -2615,7 +2619,7 @@ PropertyWrapperBackingPropertyInfoRequest::evaluate(Evaluator &evaluator,
       var->setInvalid();
       if (auto nominalWrapper = wrapperType->getAnyNominal()) {
         nominalWrapper->diagnose(diag::property_wrapper_declared_here,
-                                 nominalWrapper->getFullName());
+                                 nominalWrapper->getName());
       }
       return PropertyWrapperBackingPropertyInfo();
     }
@@ -2791,11 +2795,10 @@ static void finishLazyVariableImplInfo(VarDecl *var,
   }
 
   // Lazy properties must be written as stored properties in the source.
-  if (!info.isSimpleStored()) {
-    diagnoseAndRemoveAttr(var, attr,
-                          info.hasStorage()
-                          ? diag::lazy_not_observable
-                          : diag::lazy_not_on_computed);
+  if (info.getReadImpl() != ReadImplKind::Stored &&
+      (info.getWriteImpl() != WriteImplKind::Stored &&
+       info.getWriteImpl() != WriteImplKind::StoredWithObservers)) {
+    diagnoseAndRemoveAttr(var, attr, diag::lazy_not_on_computed);
     invalid = true;
   }
 

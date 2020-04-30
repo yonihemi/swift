@@ -134,7 +134,7 @@ struct UnboundImport {
   NullablePtr<ModuleDecl> getTopLevelModule(ModuleDecl *M, SourceFile &SF);
 
   /// Diagnose any errors concerning the \c @_exported, \c @_implementationOnly,
-  /// \c @testable, or \c @_private attributes, including a
+  /// \c \@testable, or \c @_private attributes, including a 
   /// non-implementation-only import of a fragile library from a resilient one.
   void validateOptions(NullablePtr<ModuleDecl> topLevelModule, SourceFile &SF);
 
@@ -732,7 +732,7 @@ ScopedImportLookupRequest::evaluate(Evaluator &evaluator,
 
     if (decls.size() == 1)
       ctx.Diags.diagnose(decls.front(), diag::decl_declared_here,
-                         decls.front()->getFullName());
+                         decls.front()->getName());
   }
   return ctx.AllocateCopy(decls);
 }

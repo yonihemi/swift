@@ -1722,7 +1722,7 @@ public:
 private:
   void foundFunction(const AbstractFunctionDecl *AFD) {
     FoundFunctionCalls = true;
-    DeclName Name = AFD->getFullName();
+    const DeclName Name = AFD->getName();
     auto ArgNames = Name.getArgumentNames();
     if (ArgNames.empty())
       return;
@@ -3239,7 +3239,7 @@ public:
     addValueBaseName(Builder, AFD->getBaseName());
 
     // Add the argument labels.
-    auto ArgLabels = AFD->getFullName().getArgumentNames();
+    const auto ArgLabels = AFD->getName().getArgumentNames();
     if (!ArgLabels.empty()) {
       if (!HaveLParen)
         Builder.addLeftParen();
@@ -3555,7 +3555,8 @@ public:
       if (Type Unwrapped = ExprType->getOptionalObjectType()) {
         lookupVisibleMemberDecls(*this, Unwrapped, CurrDeclContext,
                                  IncludeInstanceMembers,
-                                 /*includeDerivedRequirements*/false);
+                                 /*includeDerivedRequirements*/false,
+                                 /*includeProtocolExtensionMembers*/true);
         return true;
       }
       assert(IsUnwrappedOptional && "IUOs should be optional if not bound/forced");
@@ -3576,7 +3577,8 @@ public:
         if (!tryTupleExprCompletions(Unwrapped)) {
           lookupVisibleMemberDecls(*this, Unwrapped, CurrDeclContext,
                                    IncludeInstanceMembers,
-                                   /*includeDerivedRequirements*/false);
+                                   /*includeDerivedRequirements*/false,
+                                   /*includeProtocolExtensionMembers*/true);
         }
       }
       return true;
@@ -3647,7 +3649,8 @@ public:
 
     lookupVisibleMemberDecls(*this, ExprType, CurrDeclContext,
                              IncludeInstanceMembers,
-                             /*includeDerivedRequirements*/false);
+                             /*includeDerivedRequirements*/false,
+                             /*includeProtocolExtensionMembers*/true);
   }
 
   void collectOperators(SmallVectorImpl<OperatorDecl *> &results) {
@@ -4123,7 +4126,8 @@ public:
     llvm::SaveAndRestore<bool> SaveUnresolved(IsUnresolvedMember, true);
     lookupVisibleMemberDecls(consumer, baseType, CurrDeclContext,
                              /*includeInstanceMembers=*/false,
-                             /*includeDerivedRequirements*/false);
+                             /*includeDerivedRequirements*/false,
+                             /*includeProtocolExtensionMembers*/true);
   }
 
   void getUnresolvedMemberCompletions(ArrayRef<Type> Types) {
@@ -4185,7 +4189,8 @@ public:
     lookupVisibleMemberDecls(*this, MetatypeType::get(BaseType),
                              CurrDeclContext,
                              IncludeInstanceMembers,
-                             /*includeDerivedRequirements*/false);
+                             /*includeDerivedRequirements*/false,
+                             /*includeProtocolExtensionMembers*/false);
     if (BaseType->isAnyExistentialType()) {
       addKeyword("Protocol", MetatypeType::get(BaseType));
       addKeyword("Type", ExistentialMetatypeType::get(BaseType));
@@ -4219,7 +4224,8 @@ public:
     NeedLeadingDot = false;
     lookupVisibleMemberDecls(*this, MetatypeType::get(selfTy),
                              CurrDeclContext, IncludeInstanceMembers,
-                             /*includeDerivedRequirements*/false);
+                             /*includeDerivedRequirements*/false,
+                             /*includeProtocolExtensionMembers*/true);
   }
 
   static bool canUseAttributeOnDecl(DeclAttrKind DAK, bool IsInSil,
@@ -4888,7 +4894,8 @@ public:
       Type Meta = MetatypeType::get(CurrTy);
       lookupVisibleMemberDecls(*this, Meta, CurrDeclContext,
                                /*includeInstanceMembers=*/true,
-                               /*includeDerivedRequirements*/true);
+                               /*includeDerivedRequirements*/true,
+                               /*includeProtocolExtensionMembers*/false);
       addDesignatedInitializers(NTD);
       addAssociatedTypes(NTD);
     }
@@ -5596,7 +5603,7 @@ void CodeCompletionCallbacksImpl::doneParsing() {
     Lookup.setIsStaticMetatype(ParsedExpr->isStaticallyDerivedMetatype());
   }
   if (auto *DRE = dyn_cast_or_null<DeclRefExpr>(ParsedExpr)) {
-    Lookup.setIsSelfRefExpr(DRE->getDecl()->getFullName() == Context.Id_self);
+    Lookup.setIsSelfRefExpr(DRE->getDecl()->getName() == Context.Id_self);
   } else if (ParsedExpr && isa<SuperRefExpr>(ParsedExpr)) {
     Lookup.setIsSuperRefExpr();
   }

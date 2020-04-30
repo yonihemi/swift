@@ -1897,6 +1897,8 @@ Expr *AutoClosureExpr::getUnwrappedCurryThunkExpr() const {
 
       if (auto *openExistential = dyn_cast<OpenExistentialExpr>(innerBody)) {
         innerBody = openExistential->getSubExpr();
+        if (auto *ICE = dyn_cast<ImplicitConversionExpr>(innerBody))
+          innerBody = ICE->getSyntacticSubExpr();
       }
 
       if (auto *outerCall = dyn_cast<ApplyExpr>(innerBody)) {
@@ -2233,7 +2235,7 @@ void InterpolatedStringLiteralExpr::forEachSegment(ASTContext &Ctx,
       if (auto call = dyn_cast<CallExpr>(expr)) {
         DeclName name;
         if (auto fn = call->getCalledValue()) {
-          name = fn->getFullName();
+          name = fn->getName();
         } else if (auto unresolvedDot =
                       dyn_cast<UnresolvedDotExpr>(call->getFn())) {
           name = unresolvedDot->getName().getFullName();

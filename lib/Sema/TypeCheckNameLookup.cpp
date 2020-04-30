@@ -606,7 +606,7 @@ void TypeChecker::performTypoCorrection(DeclContext *DC, DeclRefKind refKind,
     if (!isPlausibleTypo(refKind, corrections.WrittenName, decl))
       return;
 
-    auto candidateName = decl->getFullName();
+    const auto candidateName = decl->getName();
 
     // Don't waste time computing edit distances that are more than
     // the worst in our collection.
@@ -627,7 +627,8 @@ void TypeChecker::performTypoCorrection(DeclContext *DC, DeclRefKind refKind,
   if (baseTypeOrNull) {
     lookupVisibleMemberDecls(consumer, baseTypeOrNull, DC,
                              /*includeInstanceMembers*/true,
-                             /*includeDerivedRequirements*/false, gsb);
+                             /*includeDerivedRequirements*/false,
+                             /*includeProtocolExtensionMembers*/true, gsb);
   } else {
     lookupVisibleDecls(consumer, DC, /*top level*/ true,
                        corrections.Loc.getBaseNameLoc());
@@ -705,7 +706,7 @@ void TypoCorrectionResults::noteAllCandidates() const {
     // diagnostic.
     if (!ClaimedCorrection) {
       SyntacticTypoCorrection correction(WrittenName, Loc,
-                                         candidate->getFullName());
+                                         candidate->getName());
       correction.addFixits(diagnostic);
     }
   }

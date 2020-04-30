@@ -2603,6 +2603,11 @@ static ConstraintFix *fixPropertyWrapperFailure(
     ConstraintSystem &cs, Type baseTy, ConstraintLocator *locator,
     llvm::function_ref<bool(SelectedOverload, VarDecl *, Type)> attemptFix,
     Optional<Type> toType = None) {
+  // Don't attempt this fix if this is a key path dynamic member
+  // lookup which produced no results. Unwrapping or wrapping
+  // the base type is not going to produce desired results.
+  if (locator->isForKeyPathDynamicMemberLookup())
+    return nullptr;
 
   Expr *baseExpr = nullptr;
   if (auto *anchor = locator->getAnchor()) {
@@ -6400,7 +6405,7 @@ static ConstraintFix *validateInitializerRef(ConstraintSystem &cs,
       auto &ctx = cs.getASTContext();
       if (auto *DRE =
               dyn_cast<DeclRefExpr>(baseExpr->getSemanticsProvidingExpr())) {
-        if (DRE->getDecl()->getFullName() == ctx.Id_self) {
+        if (DRE->getDecl()->getName() == ctx.Id_self) {
           if (getType(DRE)->is<ArchetypeType>())
             applicable = true;
         }

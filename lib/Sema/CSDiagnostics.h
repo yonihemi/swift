@@ -1076,6 +1076,10 @@ private:
   /// overload to be present, but a class marked as `@dynamicCallable`
   /// defines only `dynamicallyCall(withArguments:)` variant.
   bool diagnoseForDynamicCallable() const;
+  
+  /// Tailored diagnostics for collection literal with unresolved member expression
+  /// that defaults the element type. e.g. _ = [.e]
+  bool diagnoseInLiteralCollectionContext() const;
 
   static DeclName findCorrectEnumCaseName(Type Ty,
                                           TypoCorrectionResults &corrections,
@@ -1490,7 +1494,7 @@ public:
 
   DescriptiveDeclKind getKind() const { return Member->getDescriptiveKind(); }
 
-  DeclName getName() const { return Member->getFullName(); }
+  DeclName getName() const { return Member->getName(); }
 
   bool diagnoseAsError() override = 0;
 
@@ -1834,7 +1838,7 @@ protected:
   /// \returns The full name of the callee, or a null decl name if there is no
   /// callee.
   DeclName getCalleeFullName() const {
-    return getCallee() ? getCallee()->getFullName() : DeclName();
+    return getCallee() ? getCallee()->getName() : DeclName();
   }
 
   /// Returns the type of the parameter involved in the mismatch, including any
