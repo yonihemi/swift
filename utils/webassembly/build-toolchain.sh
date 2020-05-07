@@ -38,7 +38,7 @@ DISPLAY_NAME="${DISPLAY_NAME_SHORT} ${YEAR}-${MONTH}-${DAY}"
 $BUILD_SCRIPT \
   --install_destdir="$SOURCE_PATH/install" \
   --installable_package="$INSTALLABLE_PACKAGE" \
-  --install-prefix=/$TOOLCHAIN_NAME/usr \  
+  --install-prefix=/$TOOLCHAIN_NAME/usr \
   --swift-install-components "autolink-driver;compiler;clang-builtin-headers;stdlib;sdk-overlay;parser-lib;editor-integration;tools;testsuite-tools;toolchain-tools;license;sourcekit-inproc;swift-remote-mirror;swift-remote-mirror-headers;clang-resource-dir-symlink" \
   --llvm-install-components "clang" \
   --install-swift \
