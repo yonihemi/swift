@@ -35,6 +35,9 @@ BUNDLE_IDENTIFIER="swiftwasm.5.3-${YEAR}${MONTH}${DAY}"
 DISPLAY_NAME_SHORT="Swift for WebAssembly 5.3 Snapshot"
 DISPLAY_NAME="${DISPLAY_NAME_SHORT} ${YEAR}-${MONTH}-${DAY}"
 
+# Just a hack, spent enough time investigating this, 
+# but somehow `master` is able to work without this `mkdir`.
+mkdir -p $SOURCE_PATH/install/$TOOLCHAIN_NAME/usr/lib/clang/10.0.0
 $BUILD_SCRIPT \
   --install_destdir="$SOURCE_PATH/install" \
   --installable_package="$INSTALLABLE_PACKAGE" \
