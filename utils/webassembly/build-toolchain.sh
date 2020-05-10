@@ -35,10 +35,15 @@ BUNDLE_IDENTIFIER="swiftwasm.5.3-${YEAR}${MONTH}${DAY}"
 DISPLAY_NAME_SHORT="Swift for WebAssembly 5.3 Snapshot"
 DISPLAY_NAME="${DISPLAY_NAME_SHORT} ${YEAR}-${MONTH}-${DAY}"
 
+# Just a hack, spent enough time investigating this, 
+# but somehow `master` is able to work without this `mkdir`.
+mkdir -p $SOURCE_PATH/install/$TOOLCHAIN_NAME/usr/lib/clang/10.0.0
 $BUILD_SCRIPT \
   --install_destdir="$SOURCE_PATH/install" \
   --installable_package="$INSTALLABLE_PACKAGE" \
   --install-prefix=/$TOOLCHAIN_NAME/usr \
+  --swift-install-components "autolink-driver;compiler;clang-builtin-headers;stdlib;sdk-overlay;parser-lib;editor-integration;tools;testsuite-tools;toolchain-tools;license;sourcekit-inproc;swift-remote-mirror;swift-remote-mirror-headers;clang-resource-dir-symlink" \
+  --llvm-install-components "clang" \
   --install-swift \
   --darwin-toolchain-bundle-identifier="${BUNDLE_IDENTIFIER}" \
   --darwin-toolchain-display-name="${DISPLAY_NAME}" \
@@ -61,7 +66,7 @@ cd $TMP_DIR/$TOOLCHAIN_NAME
 
 # Merge wasi-sdk and toolchain
 cp -r $WASI_SDK_PATH/lib/clang usr/lib
-cp $WASI_SDK_PATH/bin/* usr/bin
+cp -a $WASI_SDK_PATH/bin/*ld usr/bin
 cp -r $WASI_SDK_PATH/share/wasi-sysroot usr/share
 
 # Build SwiftPM and install it into toolchain
@@ -73,7 +78,9 @@ sed -i -e "s@\".*/include@\"../../../../share/wasi-sysroot/include@g" $TMP_DIR/$
 # Copy nightly-toolchain's host environment stdlib into toolchain
 
 if [[ "$(uname)" == "Linux" ]]; then
-  cp -r $NIGHTLY_TOOLCHAIN/usr/lib/swift/linux $TMP_DIR/$TOOLCHAIN_NAME/usr/lib/swift
+  # Avoid to copy usr/lib/swift/clang because our toolchain's one is a directory
+  # but nightly's one is symbolic link, so fail to merge them.
+  rsync -a $NIGHTLY_TOOLCHAIN/usr/lib/ $TMP_DIR/$TOOLCHAIN_NAME/usr/lib/ --exclude 'swift/clang'
 else
   cp -r $NIGHTLY_TOOLCHAIN/usr/lib/swift/macosx $TMP_DIR/$TOOLCHAIN_NAME/usr/lib/swift
 fi
