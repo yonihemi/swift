@@ -10,7 +10,7 @@ install_linux() {
 
   pushd ${WORKSPACE}
 
-  BASE_URL=https://swift.org/builds/development/ubuntu1804
+  BASE_URL=https://swift.org/builds/swift-5.3-branch/ubuntu1804
   export $(/usr/bin/curl ${BASE_URL}/latest-build.yml | grep 'download:' | sed 's/:[^:\/\/]/=/g')
 
   DOWNLOAD_DIR=$(echo $download | sed "s/-ubuntu18.04.tar.gz//g")
