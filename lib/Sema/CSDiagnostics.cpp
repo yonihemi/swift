@@ -4859,6 +4859,12 @@ bool InvalidStaticMemberRefInKeyPath::diagnoseAsError() {
   return true;
 }
 
+bool InvalidEnumCaseRefInKeyPath::diagnoseAsError() {
+  emitDiagnostic(diag::expr_keypath_enum_case, getName(),
+                 isForKeyPathDynamicMemberLookup());
+  return true;
+}
+
 bool InvalidMemberWithMutatingGetterInKeyPath::diagnoseAsError() {
   emitDiagnostic(diag::expr_keypath_mutating_getter, getName(),
                  isForKeyPathDynamicMemberLookup());
@@ -6345,5 +6351,27 @@ bool MultiArgFuncKeyPathFailure::diagnoseAsError() {
   // Diagnose use a keypath where a function with multiple arguments is expected
   emitDiagnostic(diag::expr_keypath_multiparam_func_conversion,
                  resolveType(functionType));
+  return true;
+}
+
+bool UnableToInferKeyPathRootFailure::diagnoseAsError() {
+  assert(isExpr<KeyPathExpr>(getAnchor()) && "Expected key path expression");
+  auto &ctx = getASTContext();
+  auto contextualType = getContextualType(getAnchor());
+  auto *keyPathExpr = castToExpr<KeyPathExpr>(getAnchor());
+
+  auto emitKeyPathDiagnostic = [&]() {
+    if (contextualType &&
+        contextualType->getAnyNominal() == ctx.getAnyKeyPathDecl()) {
+      return emitDiagnostic(
+          diag::cannot_infer_keypath_root_anykeypath_context);
+    }
+    return emitDiagnostic(
+        diag::cannot_infer_contextual_keypath_type_specify_root);
+  };
+
+  emitKeyPathDiagnostic()
+      .highlight(keyPathExpr->getLoc())
+      .fixItInsertAfter(keyPathExpr->getStartLoc(), "<#Root#>");
   return true;
 }
