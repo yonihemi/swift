@@ -1687,6 +1687,10 @@ public:
   void completeLabeledTrailingClosure(CodeCompletionExpr *E,
                                       bool isAtStartOfLine) override;
 
+  bool canPerformCompleteLabeledTrailingClosure() const override {
+    return true;
+  }
+
   void completeReturnStmt(CodeCompletionExpr *E) override;
   void completeYieldStmt(CodeCompletionExpr *E,
                          Optional<unsigned> yieldIndex) override;
@@ -2762,23 +2766,32 @@ public:
       const AnyFunctionType *AFT, const SubscriptDecl *SD,
       const Optional<SemanticContextKind> SemanticContext = None) {
     foundFunction(AFT);
-    auto genericSig =
-        SD->getInnermostDeclContext()->getGenericSignatureOfContext();
-    AFT = eraseArchetypes(const_cast<AnyFunctionType *>(AFT), genericSig)
-              ->castTo<AnyFunctionType>();
+    if (SD) {
+      auto genericSig =
+          SD->getInnermostDeclContext()->getGenericSignatureOfContext();
+      AFT = eraseArchetypes(const_cast<AnyFunctionType *>(AFT), genericSig)
+                ->castTo<AnyFunctionType>();
+    }
 
     CommandWordsPairs Pairs;
     CodeCompletionResultBuilder Builder(
-        Sink, CodeCompletionResult::ResultKind::Declaration,
+        Sink,
+        SD ? CodeCompletionResult::ResultKind::Declaration
+           : CodeCompletionResult::ResultKind::Pattern,
         SemanticContext ? *SemanticContext : getSemanticContextKind(SD),
         expectedTypeContext);
-    Builder.setAssociatedDecl(SD);
-    setClangDeclKeywords(SD, Pairs, Builder);
+    if (SD) {
+      Builder.setAssociatedDecl(SD);
+      setClangDeclKeywords(SD, Pairs, Builder);
+    }
     if (!HaveLParen)
       Builder.addLeftBracket();
     else
       Builder.addAnnotatedLeftBracket();
-    addCallArgumentPatterns(Builder, AFT, SD->getIndices());
+    ArrayRef<const ParamDecl *> declParams;
+    if (SD)
+      declParams = SD->getIndices()->getArray();
+    addCallArgumentPatterns(Builder, AFT->getParams(), declParams);
     if (!HaveLParen)
       Builder.addRightBracket();
     else
@@ -4491,6 +4504,51 @@ public:
     getAttributeDeclParamCompletions(DAK_Available, 0);
   }
 
+  void getSelfTypeCompletionInDeclContext(SourceLoc Loc, bool isForDeclResult) {
+    const DeclContext *typeDC = CurrDeclContext->getInnermostTypeContext();
+    if (!typeDC)
+      return;
+
+    // For protocols, there's a 'Self' generic parameter.
+    if (typeDC->getSelfProtocolDecl())
+      return;
+
+    Type selfType =
+        CurrDeclContext->mapTypeIntoContext(typeDC->getSelfInterfaceType());
+
+    if (typeDC->getSelfClassDecl()) {
+      // In classes, 'Self' can be used in result type of func, subscript and
+      // computed property, or inside function bodies.
+      bool canUseDynamicSelf = false;
+      if (isForDeclResult) {
+        canUseDynamicSelf = true;
+      } else {
+        const auto *checkDC = CurrDeclContext;
+        if (isa<TypeAliasDecl>(checkDC))
+          checkDC = checkDC->getParent();
+
+        if (const auto *AFD = checkDC->getInnermostMethodContext()) {
+          canUseDynamicSelf = Ctx.SourceMgr.rangeContainsTokenLoc(
+              AFD->getBodySourceRange(), Loc);
+        }
+      }
+      if (!canUseDynamicSelf)
+        return;
+      // 'Self' in class is a dynamic type.
+      selfType = DynamicSelfType::get(selfType, Ctx);
+    } else {
+      // In enums and structs, 'Self' is just an alias for the nominal type,
+      // and can be used anywhere.
+    }
+
+    CodeCompletionResultBuilder Builder(
+        Sink, CodeCompletionResult::ResultKind::Keyword,
+        SemanticContextKind::CurrentNominal, expectedTypeContext);
+    Builder.addKeyword("Self");
+    Builder.setKeywordKind(CodeCompletionKeywordKind::kw_Self);
+    addTypeAnnotation(Builder, selfType);
+  }
+
   void getTypeCompletionsInDeclContext(SourceLoc Loc,
                                        bool ModuleQualifier = true) {
     Kind = LookupKind::TypeInDeclContext;
@@ -5783,6 +5841,7 @@ void CodeCompletionCallbacksImpl::doneParsing() {
   auto DoPostfixExprBeginning = [&] (){
     SourceLoc Loc = P.Context.SourceMgr.getCodeCompletionLoc();
     Lookup.getValueCompletionsInDeclContext(Loc);
+    Lookup.getSelfTypeCompletionInDeclContext(Loc, /*isForDeclResult=*/false);
   };
 
   switch (Kind) {
@@ -5933,8 +5992,10 @@ void CodeCompletionCallbacksImpl::doneParsing() {
 
   case CompletionKind::TypeDeclResultBeginning:
   case CompletionKind::TypeSimpleBeginning: {
-    Lookup.getTypeCompletionsInDeclContext(
-        P.Context.SourceMgr.getCodeCompletionLoc());
+    auto Loc = Context.SourceMgr.getCodeCompletionLoc();
+    Lookup.getTypeCompletionsInDeclContext(Loc);
+    Lookup.getSelfTypeCompletionInDeclContext(
+        Loc, Kind == CompletionKind::TypeDeclResultBeginning);
     break;
   }
 
@@ -6013,7 +6074,7 @@ void CodeCompletionCallbacksImpl::doneParsing() {
     Lookup.getUnresolvedMemberCompletions(ContextInfo.getPossibleTypes());
     break;
   }
-  case CompletionKind::CallArg : {
+  case CompletionKind::CallArg: {
     ExprContextInfo ContextInfo(CurDeclContext, CodeCompleteTokenExpr);
 
     bool shouldPerformGlobalCompletion = true;
@@ -6022,9 +6083,12 @@ void CodeCompletionCallbacksImpl::doneParsing() {
         !ContextInfo.getPossibleCallees().empty()) {
       Lookup.setHaveLParen(true);
       for (auto &typeAndDecl : ContextInfo.getPossibleCallees()) {
-        if (auto SD = dyn_cast_or_null<SubscriptDecl>(typeAndDecl.Decl)) {
-          Lookup.addSubscriptCallPattern(typeAndDecl.Type, SD,
-                                         typeAndDecl.SemanticContext);
+        auto apply = ContextInfo.getAnalyzedExpr();
+        if (apply && isa<SubscriptExpr>(apply)) {
+          Lookup.addSubscriptCallPattern(
+              typeAndDecl.Type,
+              dyn_cast_or_null<SubscriptDecl>(typeAndDecl.Decl),
+              typeAndDecl.SemanticContext);
         } else {
           Lookup.addFunctionCallPattern(
               typeAndDecl.Type,
