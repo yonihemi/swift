@@ -1180,18 +1180,24 @@ namespace {
                                       TVO_CanBindToLValue |
                                       TVO_CanBindToNoEscape);
 
-      // Defaults to the type of the base expression if we have a base
-      // expression.
-      // FIXME: This is just to keep the old behavior where `foo(base.<HERE>)`
-      // the argument is type checked to the type of the 'base'. Ideally, code
-      // completion expression should be defauled to 'UnresolvedType'
-      // regardless of the existence of the base expression. But the constraint
-      // system is simply not ready for that.
       if (auto base = E->getBase()) {
+        // Defaults to the type of the base expression if we have a base
+        // expression.
+        // FIXME: This is just to keep the old behavior where `foo(base.<HERE>)`
+        // the argument is type checked to the type of the 'base'. Ideally, code
+        // completion expression should be defauled to 'UnresolvedType'
+        // regardless of the existence of the base expression. But the
+        // constraint system is simply not ready for that.
         CS.addConstraint(ConstraintKind::Defaultable, ty, CS.getType(base),
                          locator);
+
+        // Apply a viable solution even if it's ambiguous.
+        // FIXME: Remove this. This is a hack for code completion which only
+        // see solution applied AST. In future, code completion collects all
+        // viable solutions so we need to apply any solution at all.
+        CS.Options |= ConstraintSystemFlags::ForceApplyViableSolution;
       }
-      
+
       return ty;
     }
 
@@ -2321,12 +2327,18 @@ namespace {
 
         return setType(ParenType::get(CS.getASTContext(), underlyingType));
       }
-      case PatternKind::Var:
+      case PatternKind::Var: {
+        auto *subPattern = cast<VarPattern>(pattern)->getSubPattern();
+        auto type = getTypeForPattern(subPattern, locator, externalPatternType,
+                                      bindPatternVarsOneWay);
+
+        if (!type)
+          return Type();
+
         // Var doesn't affect the type.
-        return setType(
-            getTypeForPattern(
-              cast<VarPattern>(pattern)->getSubPattern(), locator,
-              externalPatternType, bindPatternVarsOneWay));
+        return setType(type);
+      }
+
       case PatternKind::Any: {
         return setType(
             CS.createTypeVariable(CS.getConstraintLocator(locator),
@@ -4235,7 +4247,9 @@ static bool generateInitPatternConstraints(
       pattern, locator, target.shouldBindPatternVarsOneWay(),
       target.getInitializationPatternBindingDecl(),
       target.getInitializationPatternBindingIndex());
-  assert(patternType && "All patterns have a type");
+
+  if (!patternType)
+    return true;
 
   if (auto wrappedVar = target.getInitializationWrappedVar()) {
     // Add an equal constraint between the pattern type and the
