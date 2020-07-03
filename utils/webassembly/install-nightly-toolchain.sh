@@ -5,13 +5,14 @@ DESTINATION="${SOURCE_DIR}/swift-nightly-toolchain"
 
 mkdir -p $DESTINATION
 
+BASE_URL="https://swift.org/builds/swift-5.3-branch"
+
 install_linux() {
   WORKSPACE=$(mktemp -d)
 
   pushd ${WORKSPACE}
 
-  BASE_URL=https://swift.org/builds/swift-5.3-branch/ubuntu1804
-  export $(/usr/bin/curl ${BASE_URL}/latest-build.yml | grep 'download:' | sed 's/:[^:\/\/]/=/g')
+  export $(/usr/bin/curl ${BASE_URL}/ubuntu1804/latest-build.yml | grep 'download:' | sed 's/:[^:\/\/]/=/g')
 
   DOWNLOAD_DIR=$(echo $download | sed "s/-ubuntu18.04.tar.gz//g")
   DOWNLOAD_URL=${BASE_URL}/${DOWNLOAD_DIR}/${download}
@@ -29,7 +30,6 @@ install_macos() {
 
   pushd ${WORKSPACE}
 
-  BASE_URL=https://swift.org/builds/development/
   export $(/usr/bin/curl --silent ${BASE_URL}/xcode/latest-build.yml | grep 'download:' | sed 's/:[^:\/\/]/=/g')
 
   DOWNLOAD_DIR=$(echo $download | sed "s/-osx.pkg//g")
