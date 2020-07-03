@@ -15,7 +15,7 @@ install_linux() {
   export $(/usr/bin/curl ${BASE_URL}/ubuntu1804/latest-build.yml | grep 'download:' | sed 's/:[^:\/\/]/=/g')
 
   DOWNLOAD_DIR=$(echo $download | sed "s/-ubuntu18.04.tar.gz//g")
-  DOWNLOAD_URL=${BASE_URL}/${DOWNLOAD_DIR}/${download}
+  DOWNLOAD_URL=${BASE_URL}/ubuntu1804/${DOWNLOAD_DIR}/${download}
   /usr/bin/curl ${BASE_URL}/${DOWNLOAD_DIR}/${download} > ${WORKSPACE}/latest_toolchain.tar.gz
 
   mkdir -p ${WORKSPACE}/latest_toolchain
