@@ -81,8 +81,9 @@ sed -i -e "s@\".*/include@\"../../../../share/wasi-sysroot/include@g" $SOURCE_PA
 # but nightly's one is symbolic link. A simple copy fails to merge them.
 rsync -v -a $SOURCE_PATH/install/$TOOLCHAIN_NAME/usr/lib/ $HOST_TOOLCHAIN_SDK/usr/lib/ --exclude 'swift/clang'
 
-$UTILS_PATH/build-foundation.sh $HOST_TOOLCHAIN_SDK
-$UTILS_PATH/build-xctest.sh $HOST_TOOLCHAIN_SDK
+# FIXME: avoid building foundation for now
+# $UTILS_PATH/build-foundation.sh $HOST_TOOLCHAIN_SDK
+# $UTILS_PATH/build-xctest.sh $HOST_TOOLCHAIN_SDK
 
 cd $HOST_TOOLCHAIN_DESTDIR
 tar cfz $PACKAGE_ARTIFACT $TOOLCHAIN_NAME
