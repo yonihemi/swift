@@ -43,9 +43,6 @@ $SWIFT_PATH/utils/webassembly/install-wasi-sdk.sh linux ubuntu
 # with os and environment name `getMultiarchTriple`.
 ln -s wasm32-wasi wasi-sdk/share/wasi-sysroot/lib/wasm32-wasi-unknown
 
-wget -O icu.tar.xz "https://github.com/swiftwasm/icu4c-wasi/releases/download/0.5.0/icu4c-wasi.tar.xz"
-tar xf icu.tar.xz
-
 # Install sccache
 
 if [ -z $(which sccache) ]; then
