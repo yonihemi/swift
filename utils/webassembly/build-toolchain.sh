@@ -82,8 +82,8 @@ sed -i -e "s@\".*/include@\"../../../../share/wasi-sysroot/include@g" $SOURCE_PA
 rsync -v -a $SOURCE_PATH/install/$TOOLCHAIN_NAME/usr/lib/ $HOST_TOOLCHAIN_SDK/usr/lib/ --exclude 'swift/clang'
 
 # FIXME: avoid building foundation for now
-# $UTILS_PATH/build-foundation.sh $HOST_TOOLCHAIN_SDK
-# $UTILS_PATH/build-xctest.sh $HOST_TOOLCHAIN_SDK
+$UTILS_PATH/build-foundation.sh $HOST_TOOLCHAIN_SDK
+$UTILS_PATH/build-xctest.sh $HOST_TOOLCHAIN_SDK
 
 cd $HOST_TOOLCHAIN_DESTDIR
 tar cfz $PACKAGE_ARTIFACT $TOOLCHAIN_NAME
