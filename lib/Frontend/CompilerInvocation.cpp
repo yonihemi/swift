@@ -559,6 +559,10 @@ static bool ParseLangArgs(LangOptions &Opts, ArgList &Args,
 
   Opts.EnableConcisePoundFile =
       Args.hasArg(OPT_enable_experimental_concise_pound_file);
+  Opts.EnableFuzzyForwardScanTrailingClosureMatching =
+      Args.hasFlag(OPT_enable_fuzzy_forward_scan_trailing_closure_matching,
+                   OPT_disable_fuzzy_forward_scan_trailing_closure_matching,
+                   true);
 
   Opts.EnableCrossImportOverlays =
       Args.hasFlag(OPT_enable_cross_import_overlays,
@@ -585,6 +589,8 @@ static bool ParseLangArgs(LangOptions &Opts, ArgList &Args,
   Opts.EnableSILOpaqueValues |= Args.hasArg(OPT_enable_sil_opaque_values);
 
   Opts.VerifyAllSubstitutionMaps |= Args.hasArg(OPT_verify_all_substitution_maps);
+
+  Opts.EnableVolatileModules |= Args.hasArg(OPT_enable_volatile_modules);
 
   Opts.UseDarwinPreStableABIBit =
     (Target.isMacOSX() && Target.isMacOSXVersionLT(10, 14, 4)) ||

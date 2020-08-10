@@ -651,6 +651,8 @@ static Type checkContextualRequirements(Type type,
     return type;
   }
 
+  auto &ctx = dc->getASTContext();
+
   SourceLoc noteLoc;
   {
     // We are interested in either a contextual where clause or
@@ -669,6 +671,13 @@ static Type checkContextualRequirements(Type type,
 
   const auto subMap = parentTy->getContextSubstitutions(decl->getDeclContext());
   const auto genericSig = decl->getGenericSignature();
+  if (!genericSig) {
+    ctx.Diags.diagnose(loc, diag::recursive_decl_reference,
+                       decl->getDescriptiveKind(), decl->getName());
+    decl->diagnose(diag::kind_declared_here, DescriptiveDeclKind::Type);
+    return ErrorType::get(ctx);
+  }
+
   const auto result =
     TypeChecker::checkGenericArguments(
         dc, loc, noteLoc, type,
@@ -681,7 +690,7 @@ static Type checkContextualRequirements(Type type,
   switch (result) {
   case RequirementCheckResult::Failure:
   case RequirementCheckResult::SubstitutionFailure:
-    return ErrorType::get(dc->getASTContext());
+    return ErrorType::get(ctx);
   case RequirementCheckResult::Success:
     return type;
   }
@@ -2411,15 +2420,23 @@ Type TypeResolver::resolveAttributedType(TypeAttributes &attrs,
     }
   }
 
-  if (hasFunctionAttr && !fnRepr) {
-    if (attrs.has(TAK_autoclosure)) {
+  if (attrs.has(TAK_autoclosure)) {
+    // If this is a situation where function type is wrapped
+    // into a number of parens, let's try to look through them,
+    // because parens are insignificant here e.g.:
+    //
+    // let _: (@autoclosure (() -> Void)) -> Void = { _ in }
+    if (!ty->is<FunctionType>()) {
       // @autoclosure is going to be diagnosed when type of
       // the parameter is validated, because that attribute
       // applies to the declaration now.
       repr->setInvalid();
-      attrs.clearAttribute(TAK_autoclosure);
     }
 
+    attrs.clearAttribute(TAK_autoclosure);
+  }
+
+  if (hasFunctionAttr && !fnRepr) {
     const auto diagnoseInvalidAttr = [&](TypeAttrKind kind) {
       if (kind == TAK_escaping) {
         Type optionalObjectType = ty->getOptionalObjectType();

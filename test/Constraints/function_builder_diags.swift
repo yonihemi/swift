@@ -572,3 +572,38 @@ wrapperifyInfer(true) { x in // expected-error{{unable to infer type of a closur
   intValue + x
 }
 
+struct DoesNotConform {}
+
+struct MyView {
+  @TupleBuilder var value: some P { // expected-error {{return type of property 'value' requires that 'DoesNotConform' conform to 'P'}}
+    // expected-note@-1 {{opaque return type declared here}}
+    DoesNotConform()
+  }
+
+  @TupleBuilder func test() -> some P { // expected-error {{return type of instance method 'test()' requires that 'DoesNotConform' conform to 'P'}}
+    // expected-note@-1 {{opaque return type declared here}}
+    DoesNotConform()
+  }
+
+  @TupleBuilder var emptySwitch: some P {
+    switch Optional.some(1) { // expected-error {{'switch' statement body must have at least one 'case' or 'default' block; do you want to add a default case?}}
+    }
+  }
+
+  @TupleBuilder var invalidSwitchOne: some P {
+    switch Optional.some(1) {
+    case . // expected-error {{expected ':' after 'case'}}
+    } // expected-error {{expected identifier after '.' expression}}
+  }
+
+  @TupleBuilder var invalidSwitchMultiple: some P {
+    switch Optional.some(1) {
+    case .none: // expected-error {{'case' label in a 'switch' should have at least one executable statement}}
+    case . // expected-error {{expected ':' after 'case'}}
+    } // expected-error {{expected identifier after '.' expression}}
+  }
+
+  @TupleBuilder var invalidConversion: Int {
+    "" // expected-error {{cannot convert value of type 'String' to specified type 'Int'}}
+  }
+}

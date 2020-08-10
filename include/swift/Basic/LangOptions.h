@@ -250,6 +250,14 @@ namespace swift {
     /// Build the ASTScope tree lazily
     bool LazyASTScopes = true;
 
+    /// Whether to enable the "fuzzy" forward-scanning behavior for trailing
+    /// closure matching, which skips over defaulted closure parameters
+    /// to match later (non-defaulted) closure parameters
+    ///
+    /// This is a backward-compatibility hack for unlabeled trailing closures,
+    /// to be disabled in Swift 6+.
+    bool EnableFuzzyForwardScanTrailingClosureMatching = true;
+
     /// Use Clang function types for computing canonical types.
     /// If this option is false, the clang function types will still be computed
     /// but will not be used for checking type equality.
@@ -349,6 +357,9 @@ namespace swift {
 
     /// If set to \c false, fall back to the legacy manual reference name tracking code.
     bool EnableRequestBasedIncrementalDependencies = true;
+
+    /// Load swiftmodule files in memory as volatile and avoid mmap.
+    bool EnableVolatileModules = false;
 
     /// Sets the target we are building for and updates platform conditions
     /// to match.

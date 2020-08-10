@@ -350,6 +350,12 @@ bool CanType::isObjCExistentialTypeImpl(CanType type) {
   return type.getExistentialLayout().isObjC();
 }
 
+bool CanType::isTypeErasedGenericClassTypeImpl(CanType type) {
+  if (auto nom = type->getAnyNominal())
+    return nom->isTypeErasedGenericClass();
+  return false;
+}
+
 bool TypeBase::isSpecialized() {
   Type t = getCanonicalType();
 
@@ -822,6 +828,32 @@ Type TypeBase::replaceCovariantResultType(Type newResultType,
   return FunctionType::get(inputType, resultType, fnType->getExtInfo());
 }
 
+/// Whether this parameter accepts an unlabeled trailing closure argument
+/// using the more-restrictive forward-scan rule.
+static bool allowsUnlabeledTrailingClosureParameter(const ParamDecl *param) {
+  // inout parameters never allow an unlabeled trailing closure.
+  if (param->isInOut())
+    return false;
+
+  Type paramType = param->isVariadic() ? param->getVarargBaseTy()
+                                       : param->getInterfaceType();
+  paramType = paramType->getRValueType()->lookThroughAllOptionalTypes();
+
+  // For autoclosure parameters, look through the autoclosure result type
+  // to get the actual argument type.
+  if (param->isAutoClosure()) {
+    auto fnType = paramType->getAs<AnyFunctionType>();
+    if (!fnType)
+      return false;
+
+    paramType = fnType->getResult()->lookThroughAllOptionalTypes();
+  }
+
+  // After lookup through all optional types, this parameter allows an
+  // unlabeled trailing closure if it is (structurally) a function type.
+  return paramType->is<AnyFunctionType>();
+}
+
 ParameterListInfo::ParameterListInfo(
     ArrayRef<AnyFunctionType::Param> params,
     const ValueDecl *paramOwner,
@@ -831,7 +863,7 @@ ParameterListInfo::ParameterListInfo(
   // No parameter owner means no parameter list means no default arguments
   // - hand back the zeroed bitvector.
   //
-  // FIXME: We ought to not request default argument info in this case.
+  // FIXME: We ought to not request paramer list info in this case.
   if (!paramOwner)
     return;
 
@@ -865,11 +897,20 @@ ParameterListInfo::ParameterListInfo(
   if (params.size() != paramList->size())
     return;
 
-  // Note which parameters have default arguments and/or function builders.
+  // Now we have enough information to determine which parameters accept
+  // unlabled trailing closures.
+  acceptsUnlabeledTrailingClosures.resize(params.size());
+
+  // Note which parameters have default arguments and/or accept unlabeled
+  // trailing closure arguments with the forward-scan rule.
   for (auto i : range(0, params.size())) {
     auto param = paramList->get(i);
     if (param->isDefaultArgument()) {
       defaultArguments.set(i);
+    }
+
+    if (allowsUnlabeledTrailingClosureParameter(param)) {
+      acceptsUnlabeledTrailingClosures.set(i);
     }
   }
 }
@@ -877,6 +918,12 @@ ParameterListInfo::ParameterListInfo(
 bool ParameterListInfo::hasDefaultArgument(unsigned paramIdx) const {
   return paramIdx < defaultArguments.size() ? defaultArguments[paramIdx]
       : false;
+}
+
+bool ParameterListInfo::acceptsUnlabeledTrailingClosureArgument(
+    unsigned paramIdx) const {
+  return paramIdx >= acceptsUnlabeledTrailingClosures.size() ||
+      acceptsUnlabeledTrailingClosures[paramIdx];
 }
 
 /// Turn a param list into a symbolic and printable representation that does not
@@ -4261,7 +4308,14 @@ case TypeKind::Id:
   case TypeKind::SILFunction: {
     auto fnTy = cast<SILFunctionType>(base);
     bool changed = false;
-
+    auto hasTypeErasedGenericClassType = [](Type ty) -> bool {
+      return ty.findIf([](Type subType) -> bool {
+        if (subType->getCanonicalType().isTypeErasedGenericClassType())
+          return true;
+        else
+          return false;
+      });
+    };
     auto updateSubs = [&](SubstitutionMap &subs) -> bool {
       // This interface isn't suitable for updating the substitution map in a
       // substituted SILFunctionType.
@@ -4269,9 +4323,12 @@ case TypeKind::Id:
       SmallVector<Type, 4> newReplacements;
       for (Type type : subs.getReplacementTypes()) {
         auto transformed = type.transformRec(fn);
-        assert((type->isEqual(transformed)
-                || (type->hasTypeParameter() && transformed->hasTypeParameter()))
-               && "Substituted SILFunctionType can't be transformed into a concrete type");
+        assert((type->isEqual(transformed) ||
+                (type->hasTypeParameter() && transformed->hasTypeParameter()) ||
+                (hasTypeErasedGenericClassType(type) &&
+                 hasTypeErasedGenericClassType(transformed))) &&
+               "Substituted SILFunctionType can't be transformed into a "
+               "concrete type");
         newReplacements.push_back(transformed->getCanonicalType());
         if (!type->isEqual(transformed))
           changed = true;
