@@ -707,6 +707,18 @@ protected:
     if (!cs)
       return nullptr;
 
+    // If there are no 'case' statements in the body let's try
+    // to diagnose this situation via limited exhaustiveness check
+    // before failing a builder transform, otherwise type-checker
+    // might end up without any diagnostics which leads to crashes
+    // in SILGen.
+    if (capturedCaseVars.empty()) {
+      TypeChecker::checkSwitchExhaustiveness(switchStmt, dc,
+                                             /*limitChecking=*/true);
+      hadError = true;
+      return nullptr;
+    }
+
     // Form the expressions that inject the result of each case into the
     // appropriate
     llvm::TinyPtrVector<Expr *> injectedCaseExprs;
@@ -755,6 +767,18 @@ protected:
   }
 
   VarDecl *visitCaseStmt(CaseStmt *caseStmt, Expr *subjectExpr) {
+    auto *body = caseStmt->getBody();
+
+    // Explicitly disallow `case` statements with empty bodies
+    // since that helps to diagnose other issues with switch
+    // statements by excluding invalid cases.
+    if (auto *BS = dyn_cast<BraceStmt>(body)) {
+      if (BS->getNumElements() == 0) {
+        hadError = true;
+        return nullptr;
+      }
+    }
+
     // If needed, generate constraints for everything in the case statement.
     if (cs) {
       auto locator = cs->getConstraintLocator(
@@ -1583,8 +1607,12 @@ ConstraintSystem::matchFunctionBuilder(
   // If builder is applied to the closure expression then
   // `closure body` to `closure result` matching should
   // use special locator.
-  if (auto *closure = fn.getAbstractClosureExpr())
+  if (auto *closure = fn.getAbstractClosureExpr()) {
     locator = getConstraintLocator(closure, ConstraintLocator::ClosureResult);
+  } else {
+    locator = getConstraintLocator(locator.getAnchor(),
+                                   ConstraintLocator::FunctionBuilderBodyResult);
+  }
 
   // Bind the body result type to the type of the transformed expression.
   addConstraint(bodyResultConstraintKind, transformedType, bodyResultType,
