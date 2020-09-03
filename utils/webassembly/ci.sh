@@ -30,9 +30,13 @@ $BUILD_SCRIPT $FLAGS
 if [[ "$(uname)" == "Darwin" ]]; then
   # workaround: host target test directory is necessary to use run-test
   mkdir -p $BUILD_DIR/swift-macosx-x86_64/test-macosx-x86_64
+  HOST_PLATFORM=macosx
+else
+  HOST_PLATFORM=linux
 fi
 
-$RUN_TEST_BIN --build-dir $BUILD_DIR --target wasi-wasm32 test/stdlib/
+$RUN_TEST_BIN --build-dir $BUILD_DIR --target wasi-wasm32 \
+  $BUILD_DIR/swift-${HOST_PLATFORM}-x86_64/test-wasi-wasm32/stdlib
 
 if [[ "$(uname)" == "Linux" ]]; then
   echo "Skip running test suites for Linux"
