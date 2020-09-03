@@ -9,6 +9,8 @@ import Swift
 #elseif os(Linux) || os(FreeBSD) || os(OpenBSD) || os(PS4) || os(Android) || os(Cygwin) || os(Haiku) || os(WASI)
   import Glibc
   typealias CGFloat = Double
+#elseif os(WASI)
+  import WASILibc
 #elseif os(Windows)
   import MSVCRT
   #if arch(x86_64) || arch(arm64)

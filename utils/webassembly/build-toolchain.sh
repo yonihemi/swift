@@ -73,7 +73,7 @@ cp -a $WASI_SDK_PATH/bin/{*ld,llvm-ar} $HOST_TOOLCHAIN_SDK/usr/bin
 cp -r $WASI_SDK_PATH/share/wasi-sysroot $HOST_TOOLCHAIN_SDK/usr/share
 
 # Replace absolute sysroot path with relative path
-sed -i -e "s@\".*/include@\"../../../../share/wasi-sysroot/include@g" $SOURCE_PATH/install/$TOOLCHAIN_NAME/usr/lib/swift/wasi/wasm32/glibc.modulemap
+sed -i -e "s@\".*/include@\"../../../../share/wasi-sysroot/include@g" $SOURCE_PATH/install/$TOOLCHAIN_NAME/usr/lib/swift/wasi/wasm32/wasi.modulemap
 
 # Copy the target environment stdlib into the toolchain
 
