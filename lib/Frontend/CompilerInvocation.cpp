@@ -39,16 +39,25 @@ swift::CompilerInvocation::CompilerInvocation() {
 }
 
 void CompilerInvocation::computeRuntimeResourcePathFromExecutablePath(
-    StringRef mainExecutablePath, llvm::SmallString<128> &runtimeResourcePath) {
-  runtimeResourcePath.assign(mainExecutablePath);
+    StringRef mainExecutablePath, bool shared,
+    llvm::SmallVectorImpl<char> &runtimeResourcePath) {
+  runtimeResourcePath.append(mainExecutablePath.begin(),
+                             mainExecutablePath.end());
+
   llvm::sys::path::remove_filename(runtimeResourcePath); // Remove /swift
   llvm::sys::path::remove_filename(runtimeResourcePath); // Remove /bin
-  llvm::sys::path::append(runtimeResourcePath, "lib", "swift");
+  appendSwiftLibDir(runtimeResourcePath, shared);
+}
+
+void CompilerInvocation::appendSwiftLibDir(llvm::SmallVectorImpl<char> &path,
+                                      bool shared) {
+  llvm::sys::path::append(path, "lib", shared ? "swift" : "swift_static");
 }
 
 void CompilerInvocation::setMainExecutablePath(StringRef Path) {
   llvm::SmallString<128> LibPath;
-  computeRuntimeResourcePathFromExecutablePath(Path, LibPath);
+  computeRuntimeResourcePathFromExecutablePath(
+      Path, FrontendOpts.UseSharedResourceFolder, LibPath);
   setRuntimeResourcePath(LibPath.str());
 
   llvm::SmallString<128> DiagnosticDocsPath(Path);
@@ -1258,6 +1267,11 @@ static bool ParseIRGenArgs(IRGenOptions &Opts, ArgList &Args,
     Opts.DebugPrefixMap.addMapping(SplitMap.first, SplitMap.second);
   }
 
+  for (auto A : Args.getAllArgValues(options::OPT_coverage_prefix_map)) {
+    auto SplitMap = StringRef(A).split('=');
+    Opts.CoveragePrefixMap.addMapping(SplitMap.first, SplitMap.second);
+  }
+
   for (const Arg *A : Args.filtered(OPT_Xcc)) {
     StringRef Opt = A->getValue();
     if (Opt.startswith("-D") || Opt.startswith("-U"))
@@ -1584,11 +1598,10 @@ static bool ParseMigratorArgs(MigratorOptions &Opts,
 }
 
 bool CompilerInvocation::parseArgs(
-    ArrayRef<const char *> Args,
-    DiagnosticEngine &Diags,
+    ArrayRef<const char *> Args, DiagnosticEngine &Diags,
     SmallVectorImpl<std::unique_ptr<llvm::MemoryBuffer>>
         *ConfigurationFileBuffers,
-    StringRef workingDirectory) {
+    StringRef workingDirectory, StringRef mainExecutablePath) {
   using namespace options;
 
   if (Args.empty())
@@ -1617,6 +1630,10 @@ bool CompilerInvocation::parseArgs(
   if (ParseFrontendArgs(FrontendOpts, ParsedArgs, Diags,
                         ConfigurationFileBuffers)) {
     return true;
+  }
+
+  if (!mainExecutablePath.empty()) {
+    setMainExecutablePath(mainExecutablePath);
   }
 
   ParseModuleInterfaceArgs(ModuleInterfaceOpts, ParsedArgs);

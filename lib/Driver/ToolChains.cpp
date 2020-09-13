@@ -22,6 +22,7 @@
 #include "swift/Driver/Compilation.h"
 #include "swift/Driver/Driver.h"
 #include "swift/Driver/Job.h"
+#include "swift/Frontend/Frontend.h"
 #include "swift/Option/Options.h"
 #include "clang/Basic/Version.h"
 #include "clang/Driver/Util.h"
@@ -264,6 +265,7 @@ void ToolChain::addCommonFrontendArgs(const OutputInfo &OI,
 
   // Pass on file paths that should be remapped in debug info.
   inputArgs.AddAllArgs(arguments, options::OPT_debug_prefix_map);
+  inputArgs.AddAllArgs(arguments, options::OPT_coverage_prefix_map);
 
   // Pass through the values passed to -Xfrontend.
   inputArgs.AddAllArgValues(arguments, options::OPT_Xfrontend);
@@ -521,6 +523,13 @@ ToolChain::constructInvocation(const CompileJobAction &job,
   }
   if (context.Args.hasArg(options::OPT_track_system_dependencies)) {
     Arguments.push_back("-track-system-dependencies");
+  }
+
+  if (context.Args.hasFlag(options::OPT_static_executable,
+                           options::OPT_no_static_executable, false) ||
+      context.Args.hasFlag(options::OPT_static_stdlib,
+                           options::OPT_no_static_stdlib, false)) {
+    Arguments.push_back("-use-static-resource-dir");
   }
 
   context.Args.AddLastArg(
@@ -1256,9 +1265,6 @@ void ToolChain::getClangLibraryPath(const ArgList &Args,
 void ToolChain::getResourceDirPath(SmallVectorImpl<char> &resourceDirPath,
                                    const llvm::opt::ArgList &args,
                                    bool shared) const {
-  // FIXME: Duplicated from CompilerInvocation, but in theory the runtime
-  // library link path and the standard library module import path don't
-  // need to be the same.
   if (const Arg *A = args.getLastArg(options::OPT_resource_dir)) {
     StringRef value = A->getValue();
     resourceDirPath.append(value.begin(), value.end());
@@ -1266,15 +1272,12 @@ void ToolChain::getResourceDirPath(SmallVectorImpl<char> &resourceDirPath,
     // for WASI, sdk option points to wasi-sysroot which doesn't have Swift toolchain
     StringRef value = args.getLastArg(options::OPT_sdk)->getValue();
     resourceDirPath.append(value.begin(), value.end());
-    llvm::sys::path::append(resourceDirPath, "usr", "lib",
-                            shared ? "swift" : "swift_static");
+    llvm::sys::path::append(resourceDirPath, "usr");
+    CompilerInvocation::appendSwiftLibDir(resourceDirPath, shared);
   } else {
     auto programPath = getDriver().getSwiftProgramPath();
-    resourceDirPath.append(programPath.begin(), programPath.end());
-    llvm::sys::path::remove_filename(resourceDirPath); // remove /swift
-    llvm::sys::path::remove_filename(resourceDirPath); // remove /bin
-    llvm::sys::path::append(resourceDirPath, "lib",
-                            shared ? "swift" : "swift_static");
+    CompilerInvocation::computeRuntimeResourcePathFromExecutablePath(
+        programPath, shared, resourceDirPath);
   }
 
   StringRef libSubDir = getPlatformNameForTriple(getTriple());

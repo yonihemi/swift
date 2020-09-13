@@ -179,6 +179,12 @@ static void validateDebugInfoArgs(DiagnosticEngine &diags,
   for (auto A : args.getAllArgValues(options::OPT_debug_prefix_map))
     if (A.find('=') == StringRef::npos)
       diags.diagnose(SourceLoc(), diag::error_invalid_debug_prefix_map, A);
+
+  // Check for any -coverage-prefix-map options that aren't of the form
+  // 'original=remapped' (either side can be empty, however).
+  for (auto A : args.getAllArgValues(options::OPT_coverage_prefix_map))
+    if (A.find('=') == StringRef::npos)
+      diags.diagnose(SourceLoc(), diag::error_invalid_coverage_prefix_map, A);
 }
 
 static void validateVerifyIncrementalDependencyArgs(DiagnosticEngine &diags,
@@ -2231,6 +2237,13 @@ bool Driver::handleImmediateArgs(const ArgList &Args, const ToolChain &TC) {
     if (const Arg *resourceDirArg = Args.getLastArg(options::OPT_resource_dir)) {
       commandLine.push_back("-resource-dir");
       commandLine.push_back(resourceDirArg->getValue());
+    }
+
+    if (Args.hasFlag(options::OPT_static_executable,
+                     options::OPT_no_static_executable, false) ||
+        Args.hasFlag(options::OPT_static_stdlib, options::OPT_no_static_stdlib,
+                     false)) {
+      commandLine.push_back("-use-static-resource-dir");
     }
 
     std::string executable = getSwiftProgramPath();

@@ -453,6 +453,7 @@ function set_build_options_for_host() {
     swift_cmake_options=()
     cmark_cmake_options=()
     lldb_cmake_options=()
+    llbuild_cmake_options=()
     SWIFT_HOST_VARIANT=
     SWIFT_HOST_VARIANT_SDK=
     SWIFT_HOST_VARIANT_ARCH=
@@ -669,6 +670,7 @@ function set_build_options_for_host() {
                 -DCMAKE_CXX_FLAGS="$(cmark_c_flags ${host})"
                 -DCMAKE_OSX_SYSROOT:PATH="${cmake_os_sysroot}"
                 -DCMAKE_OSX_DEPLOYMENT_TARGET="${cmake_osx_deployment_target}"
+                -DCMAKE_OSX_ARCHITECTURES="${architecture}"
             )
             llvm_cmake_options=(
                 -DCMAKE_OSX_DEPLOYMENT_TARGET:STRING="${cmake_osx_deployment_target}"
@@ -678,6 +680,7 @@ function set_build_options_for_host() {
                 -DCOMPILER_RT_ENABLE_TVOS:BOOL=FALSE
                 -DSANITIZER_MIN_OSX_VERSION="${cmake_osx_deployment_target}"
                 -DLLVM_ENABLE_MODULES:BOOL="$(true_false ${LLVM_ENABLE_MODULES})"
+                -DCMAKE_OSX_ARCHITECTURES="${architecture}"
             )
             if [[ $(is_llvm_lto_enabled) == "TRUE" ]]; then
                 llvm_cmake_options+=(
@@ -704,6 +707,13 @@ function set_build_options_for_host() {
                 -DCMAKE_OSX_SYSROOT:PATH="${cmake_os_sysroot}"
                 # This is needed to make sure to avoid using the wrong architecture
                 # in the compiler checks CMake performs
+                -DCMAKE_OSX_ARCHITECTURES="${architecture}"
+            )
+
+            lldb_cmake_options+=(
+                -DCMAKE_OSX_ARCHITECTURES="${architecture}"
+            )
+            llbuild_cmake_options+=(
                 -DCMAKE_OSX_ARCHITECTURES="${architecture}"
             )
             ;;
@@ -2015,6 +2025,7 @@ for host in "${ALL_HOSTS[@]}"; do
             llbuild)
                 cmake_options=(
                     "${cmake_options[@]}"
+                    "${llbuild_cmake_options[@]}"
 
                     -DCMAKE_BUILD_TYPE:STRING="${LLBUILD_BUILD_TYPE}"
                     -DCMAKE_INSTALL_PREFIX:PATH="$(get_host_install_prefix ${host})"
@@ -2456,13 +2467,15 @@ for host in "${ALL_HOSTS[@]}"; do
                 executable_target=
                 results_targets=
                 if ! [[ "${SKIP_TEST_SWIFT}" ]]; then
-                    executable_target=SwiftUnitTests
-                    results_targets=("${SWIFT_TEST_TARGETS[@]}")
-                    if [[ "${STRESS_TEST_SOURCEKIT}" ]]; then
-                        results_targets=(
-                            "${results_targets[@]}"
-                            stress-SourceKit
-                        )
+                    if ! [[ $(is_cross_tools_host ${host}) ]] ; then
+                       executable_target=SwiftUnitTests
+                       results_targets=("${SWIFT_TEST_TARGETS[@]}")
+                       if [[ "${STRESS_TEST_SOURCEKIT}" ]]; then
+                          results_targets=(
+                               "${results_targets[@]}"
+                               stress-SourceKit
+                          )
+                       fi
                     fi
                 fi
                 if ! [[ "${SKIP_TEST_BENCHMARKS}" ]]; then
@@ -2477,6 +2490,10 @@ for host in "${ALL_HOSTS[@]}"; do
                 ;;
             lldb)
                 if [[ "${SKIP_TEST_LLDB}" ]]; then
+                    continue
+                fi
+                if [[ $(is_cross_tools_host ${host}) ]]; then
+                    echo "--- Can't execute tests for ${host}, skipping... ---"
                     continue
                 fi
                 llvm_build_dir=$(build_directory ${host} llvm)
@@ -2781,8 +2798,12 @@ for host in "${ALL_HOSTS[@]}"; do
                 fi
                 if [[ "${LLVM_INSTALL_COMPONENTS}" == "all" ]]; then
                     INSTALL_TARGETS=install
-                else
-                    INSTALL_TARGETS=install-$(echo ${LLVM_INSTALL_COMPONENTS} | sed -E 's/;/ install-/g')
+                elif [[ -n "${LLVM_INSTALL_COMPONENTS}" ]] ; then
+                    if [[ $(is_cross_tools_host ${host}) && "${LLVM_INSTALL_COMPONENTS}" == *"compiler-rt"* ]]; then
+                        INSTALL_TARGETS=install-$(echo ${LLVM_INSTALL_COMPONENTS} | sed -E 's/compiler-rt;//g' |sed -E 's/;/ install-/g')
+                    else
+                        INSTALL_TARGETS=install-$(echo ${LLVM_INSTALL_COMPONENTS} | sed -E 's/;/ install-/g')
+                    fi
                 fi
                 ;;
             libcxx)
@@ -3009,11 +3030,7 @@ function build_and_test_installable_package() {
         local host_install_destdir="$(get_host_install_destdir ${host})"
         local host_install_prefix="$(get_host_install_prefix ${host})"
 
-        if [[ $(has_cross_compile_hosts) ]]; then
-            package_for_host="${INSTALLABLE_PACKAGE}-${host}"
-        else
-            package_for_host="${INSTALLABLE_PACKAGE}"
-        fi
+        package_for_host="${INSTALLABLE_PACKAGE}"
 
         echo "--- Creating installable package ---"
         echo "-- Package file: ${package_for_host} --"
@@ -3083,7 +3100,7 @@ function build_and_test_installable_package() {
             PKG_TESTS_SANDBOX_PARENT="$(build_directory swift_package_sandbox_${host} none)"
             PKG_TESTS_TEMPS="${PKG_TESTS_SANDBOX_PARENT}"/"tests"
 
-            if [[ "${host}" == "macosx-"* ]] ; then
+            if [[ "${host}" == "macosx-"* ]] || [[ "${host}" == "merged-hosts" ]]; then
                 PKG_TESTS_SANDBOX="${PKG_TESTS_SANDBOX_PARENT}"/"${TOOLCHAIN_PREFIX}"
             else # Linux
                 PKG_TESTS_SANDBOX="${PKG_TESTS_SANDBOX_PARENT}"
@@ -3124,7 +3141,7 @@ if [[ ${#LIPO_SRC_DIRS[@]} -gt 0 ]]; then
     # This is from multiple hosts; Which host should we say it is?
     # Let's call it 'merged-hosts' so that we can identify it.
 
-    if [[ $(should_execute_action "${mergedHost}-lipo") ]]; then
+    if [[ $(should_execute_action "${mergedHost}-lipo") || $(should_execute_action "${mergedHost}-lipo-core") ]]; then
         # Allow passing lipo with --host-lipo
         if [[ -z "${HOST_LIPO}" ]] ; then
             LIPO_PATH=$(xcrun_find_tool lipo)
@@ -3133,8 +3150,10 @@ if [[ ${#LIPO_SRC_DIRS[@]} -gt 0 ]]; then
         fi
         call "${SWIFT_SOURCE_DIR}"/utils/recursive-lipo --lipo=${LIPO_PATH} --copy-subdirs="$(get_host_install_prefix ${host})lib/swift $(get_host_install_prefix ${host})lib/swift_static" --destination="$(get_host_install_destdir ${mergedHost})" ${LIPO_SRC_DIRS[@]}
 
-        # Build and test the lipo-ed package.
-        build_and_test_installable_package ${mergedHost}
+        if [[ $(should_execute_action "${mergedHost}-lipo") ]]; then
+            # Build and test the lipo-ed package.
+            build_and_test_installable_package ${mergedHost}
+        fi
     fi
 fi
 # END
