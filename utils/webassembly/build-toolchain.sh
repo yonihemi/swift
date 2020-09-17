@@ -55,8 +55,6 @@ $SOURCE_PATH/swift/utils/build-script \
 # For some reason passing `--reconfigure` to `build-script` won't do this.
 rm -rf $SOURCE_PATH/build/Ninja-ReleaseAssert/swift-*
 
-exit 0
-
 # build the cross-compilled toolchain
 $SOURCE_PATH/swift/utils/build-script \
   --preset=$TARGET_PRESET \
@@ -88,7 +86,7 @@ $UTILS_PATH/build-foundation.sh $HOST_TOOLCHAIN_SDK
 $UTILS_PATH/build-xctest.sh $HOST_TOOLCHAIN_SDK
 
 # Cleanup build directory on CI
-if [[ -z "${CI}" ]]; then
+if [[ -n "${CI}" ]]; then
   rm -rf $SOURCE_PATH/build/Ninja-ReleaseAssert/
 fi
 
