@@ -27,6 +27,8 @@ FLAGS="--release $CACHE_FLAGS --verbose"
 
 $BUILD_SCRIPT $FLAGS
 
+exit 0
+
 if [[ "$(uname)" == "Darwin" ]]; then
   # workaround: host target test directory is necessary to use run-test
   mkdir -p $BUILD_DIR/swift-macosx-x86_64/test-macosx-x86_64
