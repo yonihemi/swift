@@ -50,8 +50,6 @@ $SOURCE_PATH/swift/utils/build-script \
   TOOLCHAIN_NAME="$TOOLCHAIN_NAME" \
   C_CXX_LAUNCHER="$(which sccache)"
 
-exit 0
-
 # Clean up the host toolchain build directory so that the next
 # `build-script` invocation doesn't pick up wrong CMake config files.
 # For some reason passing `--reconfigure` to `build-script` won't do this.
