@@ -76,7 +76,7 @@ if(WASI IN_LIST SWIFT_SDKS)
 
       GYB_SOURCES
         ${swift_platform_gyb_sources}
-        WASI.swift
+        WASI.swift.gyb
 
       SWIFT_COMPILE_FLAGS
         ${SWIFT_RUNTIME_SWIFT_COMPILE_FLAGS}
