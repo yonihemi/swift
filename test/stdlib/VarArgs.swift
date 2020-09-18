@@ -6,11 +6,12 @@ import Swift
 #if _runtime(_ObjC)
   import Darwin
   import CoreGraphics
-#elseif os(Linux) || os(FreeBSD) || os(OpenBSD) || os(PS4) || os(Android) || os(Cygwin) || os(Haiku) || os(WASI)
+#elseif os(Linux) || os(FreeBSD) || os(OpenBSD) || os(PS4) || os(Android) || os(Cygwin) || os(Haiku)
   import Glibc
   typealias CGFloat = Double
 #elseif os(WASI)
   import WASILibc
+  typealias CGFloat = Double
 #elseif os(Windows)
   import MSVCRT
   #if arch(x86_64) || arch(arm64)
