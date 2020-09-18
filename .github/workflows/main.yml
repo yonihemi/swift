@@ -47,11 +47,11 @@ jobs:
           ./utils/webassembly/ci.sh
           echo "Cleanup build directory to free disk space"
           rm -rf ../build
-      - name: Upload Linux installable archive
-        uses: actions/upload-artifact@v1
-        with:
-          name: linux-installable
-          path: ../swift-wasm-5.3-SNAPSHOT-linux.tar.gz
+#      - name: Upload Linux installable archive
+#        uses: actions/upload-artifact@v1
+#        with:
+#          name: linux-installable
+#          path: ../swift-wasm-5.3-SNAPSHOT-linux.tar.gz
 #      - name: Pack test results
 #        run: tar cJf swift-test-results.tar.gz ../build/*/swift-linux-x86_64/swift-test-results
 #      - name: Upload test results
@@ -84,23 +84,23 @@ jobs:
         run: |
           sudo xcode-select --switch /Applications/Xcode_12_beta.app/Contents/Developer/
           ./utils/webassembly/ci.sh
-      - name: Upload macOS installable archive
-        uses: actions/upload-artifact@v1
-        with:
-          name: macos-installable
-          path: ../swift-wasm-5.3-SNAPSHOT-osx.tar.gz
-      - name: Upload packaging scripts
-        uses: actions/upload-artifact@v1
-        with:
-          name: packaging-scripts
-          path: utils/webassembly
-      - name: Pack test results
-        run: tar cJf swift-test-results.tar.gz ../build/*/swift-macosx-x86_64/swift-test-results
-      - name: Upload test results
-        uses: actions/upload-artifact@v1
-        with:
-          name: macos-test-results
-          path: ./swift-test-results.tar.gz
+#      - name: Upload macOS installable archive
+#        uses: actions/upload-artifact@v1
+#        with:
+#          name: macos-installable
+#          path: ../swift-wasm-5.3-SNAPSHOT-osx.tar.gz
+#      - name: Upload packaging scripts
+#        uses: actions/upload-artifact@v1
+#        with:
+#          name: packaging-scripts
+#          path: utils/webassembly
+#      - name: Pack test results
+#        run: tar cJf swift-test-results.tar.gz ../build/*/swift-macosx-x86_64/swift-test-results
+#      - name: Upload test results
+#        uses: actions/upload-artifact@v1
+#        with:
+#          name: macos-test-results
+#          path: ./swift-test-results.tar.gz
 
   macos_smoke_test:
     name: Run smoke tests on macOS
