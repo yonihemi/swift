@@ -22,6 +22,8 @@ jobs:
           sudo apt-get purge libgcc-9-dev gcc-9 libstdc++-9-dev
           sudo swapoff -a
           sudo rm -f /swapfile
+          sudo rm -rf /opt/hostedtoolcache
+          sudo rm -rf /usr/share/dotnet
           sudo apt clean
           docker rmi $(docker image ls -aq)
           df -h
@@ -93,7 +95,7 @@ jobs:
           name: packaging-scripts
           path: utils/webassembly
       - name: Pack test results
-        run: tar cJf swift-test-results.tar.gz ../build/*/swift-macosx-x86_64/swift-test-results
+        run: tar cJf swift-test-results.tar.gz ../target-build/*/swift-macosx-x86_64/swift-test-results
       - name: Upload test results
         uses: actions/upload-artifact@v1
         with:

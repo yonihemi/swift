@@ -1610,6 +1610,11 @@ for host in "${ALL_HOSTS[@]}"; do
 
                 llvm_enable_projects=("clang")
 
+                # wasm: lld is necessary to sync compiler llvm version and lld llvm version
+                if [[ ! "${SKIP_BUILD_LLD}" ]]; then
+                    llvm_enable_projects+=("lld")
+                fi
+
                 if [[ ! "${SKIP_BUILD_COMPILER_RT}" && ! $(is_cross_tools_host ${host}) ]]; then
                     llvm_enable_projects+=("compiler-rt")
                 fi
