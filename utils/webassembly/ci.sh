@@ -32,11 +32,13 @@ if [[ "$(uname)" == "Darwin" ]]; then
   mkdir -p $TARGET_BUILD_DIR/swift-macosx-x86_64/test-macosx-x86_64
 fi
 
-$RUN_TEST_BIN --build-dir $TARGET_BUILD_DIR --target wasi-wasm32 test/stdlib/
-
 if [[ "$(uname)" == "Linux" ]]; then
+  $RUN_TEST_BIN --build-dir $TARGET_BUILD_DIR --target wasi-wasm32 test/stdlib/ || true
   echo "Skip running test suites for Linux"
 else
+
+  $RUN_TEST_BIN --build-dir $TARGET_BUILD_DIR --target wasi-wasm32 test/stdlib/
+
   # Run test but ignore failure temporarily
   $BUILD_SCRIPT $FLAGS -t || true
 fi
