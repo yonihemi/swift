@@ -13,7 +13,7 @@ fi
 
 BUILD_SCRIPT=$UTILS_PATH/build-toolchain.sh
 RUN_TEST_BIN=$SWIFT_PATH/utils/run-test
-TARGET_BUILD_DIR=$SOURCE_PATH/target-build/Ninja-ReleaseAssert
+TARGET_BUILD_DIR=$SOURCE_PATH/target-build/Ninja-Release
 
 $DEPENDENCIES_SCRIPT
 
