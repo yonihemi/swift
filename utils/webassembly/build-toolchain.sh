@@ -4,7 +4,7 @@ set -ex
 SOURCE_PATH="$(cd "$(dirname $0)/../../.." && pwd)"
 UTILS_PATH="$(cd "$(dirname $0)" && pwd)"
 
-WASI_SDK_PATH=$SOURCE_PATH/wasi-sdk
+WASI_SYSROOT_PATH=$SOURCE_PATH/wasi-sysroot
 
 case $(uname -s) in
   Darwin)
@@ -107,8 +107,8 @@ merge_toolchains() {
   # Copy the base host toolchain
   cp -r "$HOST_TOOLCHAIN_DESTDIR" "$DIST_TOOLCHAIN_DESTDIR"
 
-  # Merge wasi-sdk and the toolchain
-  cp -r $WASI_SDK_PATH/share/wasi-sysroot $DIST_TOOLCHAIN_SDK/usr/share
+  # Merge wasi-sysroot and the toolchain
+  cp -r "$WASI_SYSROOT_PATH" "$DIST_TOOLCHAIN_SDK/usr/share"
 
   # Copy the target environment stdlib into the toolchain
   # Avoid copying usr/lib/swift/clang because our toolchain's one is a directory
